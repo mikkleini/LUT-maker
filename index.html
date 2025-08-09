@@ -1757,7 +1757,7 @@ input[type="range"] {
 			  // Convert steps to 0-255 range
 			  const r = (redStep / (steps - 1)) * 255;
 			  const g = (greenStep / (steps - 1)) * 255;
-			  const b = (blueStep / (steps - 1)) * 255;
+			  const b = blueStep * 4; // Blue increases by 4 per block (0, 4, 8, ..., 252)
 			  
 			  // Apply transformations if coefficients are available
 			  let finalR = r, finalG = g, finalB = b;
@@ -2661,9 +2661,9 @@ input[type="range"] {
 					const localY = y % 8; // 0-7
 					
 					// Map to RGB (OBS format: R=X, G=Y within blocks)
-					const r = localX * 255 / 7;  // Red varies horizontally
-					const g = localY * 255 / 7;  // Green varies vertically
-					const b = blockIndex * 255 / 63;  // Blue varies by block
+					const r = localX * 255 / 7;  // Red varies horizontally (0-255 in 8 steps)
+					const g = localY * 255 / 7;  // Green varies vertically (0-255 in 8 steps)
+					const b = blockIndex * 4;  // Blue increases by 4 per block (0, 4, 8, ..., 252)
 					
 					// Calculate pixel index
 					const index = (y * 64 + x) * 4;
