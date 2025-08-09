@@ -769,9 +769,10 @@ input[type="range"] {
                     
                     <div class="controls">
                         <div class="slider-container">
-                            <label for="lut-size-slider">LUT Size:</label>
+                            <label for="lut-size-slider">CUBE LUT Size:</label>
                             <input type="range" id="lut-size-slider" min="16" max="64" value="32" step="16" class="slider">
                             <span id="lut-size-value" class="slider-value">32</span>
+                            <small style="display: block; margin-top: 5px; color: #666;">(PNG LUTs are always 512x512)</small>
                         </div>
                         <div class="slider-container">
                             <label for="lut-format">LUT Format:</label>
@@ -1679,8 +1680,10 @@ input[type="range"] {
 			const gammaCurves = useAdvancedProcessing ? state.gammaCurves : null;
 
 			if (state.lutFormat === 'png') {
+				// For PNG, always generate at 512x512 for quality (64x64 will be offered on download)
 				generate2dPngLUT(lutCanvas, lutCtx, useAdvancedProcessing, gammaCurves);
 			} else if (state.lutFormat === 'cube') {
+				// For CUBE, use the user-selected size
 				generate3dCubeLUT(lutCanvas, lutCtx, useAdvancedProcessing, gammaCurves);
 			}
 
@@ -1718,39 +1721,43 @@ input[type="range"] {
 		}
 
 		function generate2dPngLUT(lutCanvas, lutCtx, useAdvancedProcessing, gammaCurves) {
-		  // Standard 2D LUT format is 64x64 for OBS (or 512x512 for higher precision)
-		  // Using 512x512 for better quality
-		  const lutSize = 512;
+		  // Standard Hald CLUT format for OBS
+		  // Common sizes: 64x64 (level 8) or 512x512 (level 64)
+		  const lutSize = 512; // Fixed at 512 for quality
 		  lutCanvas.width = lutSize;
 		  lutCanvas.height = lutSize;
 		  lutCtx.clearRect(0, 0, lutCanvas.width, lutCanvas.height);
 		  const lutData = lutCtx.createImageData(lutSize, lutSize);
 		  const data = lutData.data;
 		  
-		  // Standard 2D LUT layout: 8x8 grid of 64x64 blocks
-		  // Each block represents different blue values (0-63)
-		  // Within each block: X = red (0-63), Y = green (0-63)
+		  // For 512x512: 64 steps per channel, arranged as 8x8 grid of 64x64 blocks
+		  const steps = 64;
 		  const blockSize = 64;
 		  const blocksPerRow = 8;
 		  
 		  for (let y = 0; y < lutSize; y++) {
 			for (let x = 0; x < lutSize; x++) {
-			  // Determine which block we're in
+			  // Calculate which block we're in (0-63)
 			  const blockX = Math.floor(x / blockSize);
 			  const blockY = Math.floor(y / blockSize);
 			  const blockIndex = blockY * blocksPerRow + blockX;
 			  
-			  // Position within the block
+			  // Position within the block (0-63)
 			  const localX = x % blockSize;
 			  const localY = y % blockSize;
 			  
-			  // Calculate RGB values for neutral LUT
-			  // Red: varies with localX (0-255)
-			  const r = (localX / (blockSize - 1)) * 255;
-			  // Green: varies with localY (0-255)
-			  const g = (localY / (blockSize - 1)) * 255;
-			  // Blue: varies with block index (0-255)
-			  const b = (blockIndex / 63) * 255;
+			  // Standard Hald CLUT color mapping
+			  // Blue changes by block (8x8 grid = 64 values)
+			  const blueStep = blockIndex;
+			  // Green changes vertically within each block  
+			  const greenStep = localY;
+			  // Red changes horizontally within each block
+			  const redStep = localX;
+			  
+			  // Convert steps to 0-255 range
+			  const r = (redStep / (steps - 1)) * 255;
+			  const g = (greenStep / (steps - 1)) * 255;
+			  const b = (blueStep / (steps - 1)) * 255;
 			  
 			  // Apply transformations if coefficients are available
 			  let finalR = r, finalG = g, finalB = b;
@@ -2641,14 +2648,22 @@ input[type="range"] {
 			const lutData = lutCtx.createImageData(64, 64);
 			const data = lutData.data;
 			
-			// Fill the entire 64x64 grid
+			// Fill the entire 64x64 grid with Hald CLUT format
 			for (let y = 0; y < 64; y++) {
 				for (let x = 0; x < 64; x++) {
-					// Calculate RGB values from position
-					// In 64x64 format, each component (r,g,b) gets 8 values (0-7)
-					const r = Math.floor(x % 8) * 255 / 7;     // R cycles every 8 pixels
-					const g = Math.floor(x / 8) * 255 / 7;     // G cycles every 8 columns of R
-					const b = Math.floor(y / 8) * 255 / 7;     // B changes every 8 rows
+					// Hald CLUT level 8 format (8x8x8 = 512 colors in 64x64 grid)
+					// Each 8x8 block represents a different blue value
+					const blockX = Math.floor(x / 8);
+					const blockY = Math.floor(y / 8);
+					const blockIndex = blockY * 8 + blockX; // 0-63
+					
+					const localX = x % 8; // 0-7
+					const localY = y % 8; // 0-7
+					
+					// Map to RGB
+					const r = localX * 255 / 7;
+					const g = localY * 255 / 7;
+					const b = blockIndex * 255 / 63;
 					
 					// Calculate pixel index
 					const index = (y * 64 + x) * 4;
