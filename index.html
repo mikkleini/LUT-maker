@@ -1754,10 +1754,11 @@ input[type="range"] {
 			  // Green changes vertically (Y) within each block  
 			  const greenStep = localY;
 			  
-			  // Convert steps to 0-255 range
-			  const r = (redStep / (steps - 1)) * 255;
-			  const g = (greenStep / (steps - 1)) * 255;
-			  const b = blueStep * 4; // Blue increases by 4 per block (0, 4, 8, ..., 252)
+			  // Convert steps to 0-255 range using step size of 4, with clamping at 255
+			  // This matches the exact OBS neutral LUT format
+			  const r = Math.min(255, redStep * 4);   // 0, 4, 8, ..., 252, 255
+			  const g = Math.min(255, greenStep * 4);  // 0, 4, 8, ..., 252, 255
+			  const b = Math.min(255, blueStep * 4);   // 0, 4, 8, ..., 252, 255
 			  
 			  // Apply transformations if coefficients are available
 			  let finalR = r, finalG = g, finalB = b;
@@ -2661,9 +2662,10 @@ input[type="range"] {
 					const localY = y % 8; // 0-7
 					
 					// Map to RGB (OBS format: R=X, G=Y within blocks)
-					const r = localX * 255 / 7;  // Red varies horizontally (0-255 in 8 steps)
-					const g = localY * 255 / 7;  // Green varies vertically (0-255 in 8 steps)
-					const b = blockIndex * 4;  // Blue increases by 4 per block (0, 4, 8, ..., 252)
+					// For 64x64 (8x8x8 LUT), we scale differently
+					const r = Math.round(localX * 255 / 7);  // 0, 36, 73, 109, 146, 182, 219, 255
+					const g = Math.round(localY * 255 / 7);  // 0, 36, 73, 109, 146, 182, 219, 255
+					const b = Math.round(blockIndex * 255 / 63);  // 0-255 across 64 blocks
 					
 					// Calculate pixel index
 					const index = (y * 64 + x) * 4;
