@@ -2077,44 +2077,14 @@ input[type="range"] {
 		  if (state.lutFormat === 'png') {
 			const lutCanvas = document.getElementById('lut-preview');
 			
-			// Standard 2D LUT should be 512x512 for high quality or 64x64 for compatibility
-			// We generate at 512x512 but can offer both options
-			if (lutCanvas.width === 512 && lutCanvas.height === 512) {
-			  // Download the full-resolution 512x512 LUT
-			  const dataURL = lutCanvas.toDataURL('image/png');
-			  const a = document.createElement('a');
-			  a.href = dataURL;
-			  a.download = 'custom-lut-512.png';
-			  a.click();
-			  
-			  // Also offer a 64x64 version for compatibility
-			  logMessage('Generating 64x64 compatibility version...', 'info');
-			  const smallCanvas = document.createElement('canvas');
-			  smallCanvas.width = 64;
-			  smallCanvas.height = 64;
-			  const smallCtx = smallCanvas.getContext('2d');
-			  
-			  // Use nearest neighbor scaling to preserve color accuracy
-			  smallCtx.imageSmoothingEnabled = false;
-			  smallCtx.drawImage(lutCanvas, 0, 0, 64, 64);
-			  
-			  // Download the 64x64 version
-			  setTimeout(() => {
-				const smallDataURL = smallCanvas.toDataURL('image/png');
-				const smallA = document.createElement('a');
-				smallA.href = smallDataURL;
-				smallA.download = 'custom-lut-64.png';
-				smallA.click();
-				logMessage('Both 512x512 and 64x64 LUT versions downloaded!', 'success');
-			  }, 500);
-			} else {
-			  // Fallback for other sizes
-			  const dataURL = lutCanvas.toDataURL('image/png');
-			  const a = document.createElement('a');
-			  a.href = dataURL;
-			  a.download = 'custom-lut.png';
-			  a.click();
-			}
+			// Download the LUT as PNG
+			const dataURL = lutCanvas.toDataURL('image/png');
+			const a = document.createElement('a');
+			a.href = dataURL;
+			a.download = 'custom-lut.png';
+			a.click();
+			
+			logMessage('LUT downloaded successfully!', 'success');
 		  } else if (state.lutFormat === 'cube' && state.cubeData) {
 			// Create blob from cube data
 			const blob = new Blob([state.cubeData], { type: 'text/plain' });
@@ -2259,17 +2229,8 @@ input[type="range"] {
 				}
 			}
 			
-			// Normalize input values for numerical stability
-			const rMin = Math.min(...r), rMax = Math.max(...r);
-			const gMin = Math.min(...g), gMax = Math.max(...g);
-			const bMin = Math.min(...b), bMax = Math.max(...b);
-			
-			const rRange = rMax - rMin, gRange = gMax - gMin, bRange = bMax - bMin;
-			
-			// Avoid division by zero
-			const normalizedR = rRange === 0 ? r.map(() => 0) : r.map(val => (val - rMin) / rRange);
-			const normalizedG = gRange === 0 ? g.map(() => 0) : g.map(val => (val - gMin) / gRange);
-			const normalizedB = bRange === 0 ? b.map(() => 0) : b.map(val => (val - bMin) / bRange);
+			// Work directly with RGB values (0-255) like Python implementation
+			// NO normalization - critical for matching Python behavior
 			
 			// Create design matrix
 			const matrix = [];
@@ -2278,11 +2239,11 @@ input[type="range"] {
 			for (let i = 0; i < n; i++) {
 				const row = [];
 				for (const [di, dj, dk] of degrees) {
-					// Calculate r^i * g^j * b^k
+					// Calculate r^i * g^j * b^k using raw RGB values (0-255)
 					row.push(
-						Math.pow(normalizedR[i], di) * 
-						Math.pow(normalizedG[i], dj) * 
-						Math.pow(normalizedB[i], dk)
+						Math.pow(r[i], di) * 
+						Math.pow(g[i], dj) * 
+						Math.pow(b[i], dk)
 					);
 				}
 				matrix.push(row);
@@ -2357,7 +2318,7 @@ input[type="range"] {
 				coefficients[i] = (augmentedMatrix[i][m] - sum) / augmentedMatrix[i][i];
 			}
 			
-			return { coefficients, degrees, normalize: { rMin, rMax, gMin, gMax, bMin, bMax } };
+			return { coefficients, degrees }; // No normalization params - work with raw RGB
 }
 
 		function applyPoly3d(r, g, b, model) {
@@ -2365,20 +2326,10 @@ input[type="range"] {
 				return r; // Return input value as fallback
 			}
 			
-			const { coefficients, degrees, normalize } = model;
+			const { coefficients, degrees } = model;
 			
-			// Normalize input values using the same parameters as during training
-			let normalizedR = r, normalizedG = g, normalizedB = b;
-			
-			if (normalize) {
-				const { rMin, rMax, gMin, gMax, bMin, bMax } = normalize;
-				const rRange = rMax - rMin, gRange = gMax - gMin, bRange = bMax - bMin;
-				
-				// Avoid division by zero
-				normalizedR = rRange === 0 ? 0 : (r - rMin) / rRange;
-				normalizedG = gRange === 0 ? 0 : (g - gMin) / gRange;
-				normalizedB = bRange === 0 ? 0 : (b - bMin) / bRange;
-			}
+			// Work directly with RGB values (0-255) - NO normalization
+			// This matches the Python implementation
 			
 			let result = 0;
 			
@@ -2388,12 +2339,9 @@ input[type="range"] {
 				const [di, dj, dk] = degrees[i];
 				const coef = coefficients[i] || 0;
 				
-				// Use a safer approach to calculate powers
-				let term = coef;
-				
-				if (normalizedR !== 0 || di === 0) term *= Math.pow(normalizedR, di);
-				if (normalizedG !== 0 || dj === 0) term *= Math.pow(normalizedG, dj);
-				if (normalizedB !== 0 || dk === 0) term *= Math.pow(normalizedB, dk);
+				// Calculate term using raw RGB values (0-255)
+				// Matching Python's poly3d implementation
+				let term = coef * Math.pow(r, di) * Math.pow(g, dj) * Math.pow(b, dk);
 				
 				if (isFinite(term)) {
 					result += term;
