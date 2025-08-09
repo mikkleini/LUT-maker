@@ -1718,62 +1718,79 @@ input[type="range"] {
 		}
 
 		function generate2dPngLUT(lutCanvas, lutCtx, useAdvancedProcessing, gammaCurves) {
-		  // Set canvas dimensions for 8x8 grid (64 cells)
-		  lutCanvas.width = 512;
-		  lutCanvas.height = 512;
+		  // Standard 2D LUT format is 64x64 for OBS (or 512x512 for higher precision)
+		  // Using 512x512 for better quality
+		  const lutSize = 512;
+		  lutCanvas.width = lutSize;
+		  lutCanvas.height = lutSize;
 		  lutCtx.clearRect(0, 0, lutCanvas.width, lutCanvas.height);
-		  const lutData = lutCtx.createImageData(512, 512);
+		  const lutData = lutCtx.createImageData(lutSize, lutSize);
 		  const data = lutData.data;
 		  
-		  // Cell size (each cell is 64x64 pixels)
-		  const cellSize = 64;
+		  // Standard 2D LUT layout: 8x8 grid of 64x64 blocks
+		  // Each block represents different blue values (0-63)
+		  // Within each block: X = red (0-63), Y = green (0-63)
+		  const blockSize = 64;
+		  const blocksPerRow = 8;
 		  
-		  // Generate the 8x8 grid of color gradients
-		  for (let y = 0; y < 512; y++) {
-			for (let x = 0; x < 512; x++) {
-			  // Calculate grid position (0-7 for both x and y)
-			  const gridX = Math.floor(x / cellSize);
-			  const gridY = Math.floor(y / cellSize);
+		  for (let y = 0; y < lutSize; y++) {
+			for (let x = 0; x < lutSize; x++) {
+			  // Determine which block we're in
+			  const blockX = Math.floor(x / blockSize);
+			  const blockY = Math.floor(y / blockSize);
+			  const blockIndex = blockY * blocksPerRow + blockX;
 			  
-			  // Calculate position within cell (0-63 for both x and y)
-			  const cellX = x % cellSize;
-			  const cellY = y % cellSize;
+			  // Position within the block
+			  const localX = x % blockSize;
+			  const localY = y % blockSize;
 			  
-			  // Calculate normalized coordinates within cell (0-1)
-			  const normalizedX = cellX / (cellSize - 1);
-			  const normalizedY = cellY / (cellSize - 1);
+			  // Calculate RGB values for neutral LUT
+			  // Red: varies with localX (0-255)
+			  const r = (localX / (blockSize - 1)) * 255;
+			  // Green: varies with localY (0-255)
+			  const g = (localY / (blockSize - 1)) * 255;
+			  // Blue: varies with block index (0-255)
+			  const b = (blockIndex / 63) * 255;
 			  
-			  // Map grid position to base colors
-			  // Red varies horizontally across entire width
-			  const r = normalizedX * 255;
+			  // Apply transformations if coefficients are available
+			  let finalR = r, finalG = g, finalB = b;
 			  
-			  // Green varies vertically
-			  const g = normalizedY * 255;
+			  if (state.transformationCoefficients.red) {
+				// Apply the color transformation
+				finalR = safeApplyPolynomial(r, state.transformationCoefficients.red);
+				finalG = safeApplyPolynomial(g, state.transformationCoefficients.green);
+				finalB = safeApplyPolynomial(b, state.transformationCoefficients.blue);
+				
+				// Apply brightness adjustment
+				finalR += state.brightnessAdjustment;
+				finalG += state.brightnessAdjustment;
+				finalB += state.brightnessAdjustment;
+				
+				// Apply gamma if needed
+				const gammaValue = state.gammaValue || 1.0;
+				if (gammaValue !== 1.0) {
+				  finalR = safeGamma(finalR, gammaValue);
+				  finalG = safeGamma(finalG, gammaValue);
+				  finalB = safeGamma(finalB, gammaValue);
+				}
+				
+				// Apply advanced processing if enabled
+				if (useAdvancedProcessing && gammaCurves) {
+				  [finalR, finalG, finalB] = processPixelAdvanced(r, g, b, state.transformationModels, state.brightnessAdjustment, gammaCurves);
+				}
+			  }
 			  
-			  // Blue varies by grid position (creating the different hues in each cell)
-			  const b = (gridX / 7 + gridY / 7) * 255;
+			  // Clamp values to 0-255
+			  finalR = Math.min(255, Math.max(0, Math.round(finalR)));
+			  finalG = Math.min(255, Math.max(0, Math.round(finalG)));
+			  finalB = Math.min(255, Math.max(0, Math.round(finalB)));
 			  
-			  // Calculate array index for the current pixel
-			  const index = (y * 512 + x) * 4;
-			  
-			  // Set RGBA values
-			  data[index] = r;
-			  data[index + 1] = g;
-			  data[index + 2] = b;
-			  data[index + 3] = 255; // Alpha is always 255 (fully opaque)
-			}
-		  }
-		  
-		  // Apply additional transformations if required
-		  if (useAdvancedProcessing && typeof applyTransformations === 'function') {
-			for (let i = 0; i < data.length; i += 4) {
-			  const r = data[i];
-			  const g = data[i + 1];
-			  const b = data[i + 2];
-			  const [newR, newG, newB] = applyTransformations(r, g, b, useAdvancedProcessing, gammaCurves);
-			  data[i] = newR;
-			  data[i + 1] = newG;
-			  data[i + 2] = newB;
+			  // Set pixel data
+			  const index = (y * lutSize + x) * 4;
+			  data[index] = finalR;
+			  data[index + 1] = finalG;
+			  data[index + 2] = finalB;
+			  data[index + 3] = 255; // Alpha
 			}
 		  }
 		  
@@ -2052,27 +2069,38 @@ input[type="range"] {
 		  if (state.lutFormat === 'png') {
 			const lutCanvas = document.getElementById('lut-preview');
 			
-			// Ensure the canvas is properly sized for download
-			if (lutCanvas.width !== 512 || lutCanvas.height !== 512) {
-			  logMessage('Resizing LUT to full 512x512 for download...', 'info');
-			  
-			  // Create a temporary canvas for the full-sized LUT
-			  const downloadCanvas = document.createElement('canvas');
-			  downloadCanvas.width = 512;
-			  downloadCanvas.height = 512;
-			  
-			  // Copy the preview LUT to the download canvas, stretching if needed
-			  const downloadCtx = downloadCanvas.getContext('2d');
-			  downloadCtx.drawImage(lutCanvas, 0, 0, 512, 512);
-			  
-			  // Get data URL from the download canvas
-			  const dataURL = downloadCanvas.toDataURL('image/png');
+			// Standard 2D LUT should be 512x512 for high quality or 64x64 for compatibility
+			// We generate at 512x512 but can offer both options
+			if (lutCanvas.width === 512 && lutCanvas.height === 512) {
+			  // Download the full-resolution 512x512 LUT
+			  const dataURL = lutCanvas.toDataURL('image/png');
 			  const a = document.createElement('a');
 			  a.href = dataURL;
-			  a.download = 'custom-lut.png';
+			  a.download = 'custom-lut-512.png';
 			  a.click();
+			  
+			  // Also offer a 64x64 version for compatibility
+			  logMessage('Generating 64x64 compatibility version...', 'info');
+			  const smallCanvas = document.createElement('canvas');
+			  smallCanvas.width = 64;
+			  smallCanvas.height = 64;
+			  const smallCtx = smallCanvas.getContext('2d');
+			  
+			  // Use nearest neighbor scaling to preserve color accuracy
+			  smallCtx.imageSmoothingEnabled = false;
+			  smallCtx.drawImage(lutCanvas, 0, 0, 64, 64);
+			  
+			  // Download the 64x64 version
+			  setTimeout(() => {
+				const smallDataURL = smallCanvas.toDataURL('image/png');
+				const smallA = document.createElement('a');
+				smallA.href = smallDataURL;
+				smallA.download = 'custom-lut-64.png';
+				smallA.click();
+				logMessage('Both 512x512 and 64x64 LUT versions downloaded!', 'success');
+			  }, 500);
 			} else {
-			  // The canvas is already the right size
+			  // Fallback for other sizes
 			  const dataURL = lutCanvas.toDataURL('image/png');
 			  const a = document.createElement('a');
 			  a.href = dataURL;
