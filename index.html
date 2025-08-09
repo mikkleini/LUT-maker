@@ -1746,13 +1746,13 @@ input[type="range"] {
 			  const localX = x % blockSize;
 			  const localY = y % blockSize;
 			  
-			  // Standard Hald CLUT color mapping
+			  // Standard OBS Hald CLUT color mapping
 			  // Blue changes by block (8x8 grid = 64 values)
 			  const blueStep = blockIndex;
-			  // Green changes vertically within each block  
-			  const greenStep = localY;
-			  // Red changes horizontally within each block
+			  // Red changes horizontally (X) within each block
 			  const redStep = localX;
+			  // Green changes vertically (Y) within each block  
+			  const greenStep = localY;
 			  
 			  // Convert steps to 0-255 range
 			  const r = (redStep / (steps - 1)) * 255;
@@ -2660,10 +2660,10 @@ input[type="range"] {
 					const localX = x % 8; // 0-7
 					const localY = y % 8; // 0-7
 					
-					// Map to RGB
-					const r = localX * 255 / 7;
-					const g = localY * 255 / 7;
-					const b = blockIndex * 255 / 63;
+					// Map to RGB (OBS format: R=X, G=Y within blocks)
+					const r = localX * 255 / 7;  // Red varies horizontally
+					const g = localY * 255 / 7;  // Green varies vertically
+					const b = blockIndex * 255 / 63;  // Blue varies by block
 					
 					// Calculate pixel index
 					const index = (y * 64 + x) * 4;
