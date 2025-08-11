@@ -1483,20 +1483,62 @@ input[type="range"] {
             
             // For simple linear regression (degree 1)
             if (degree === 1) {
-                let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+                // Check if we have black point in the data
+                const hasBlack = x.some((val, idx) => val < 10 && y[idx] < 10);
                 
-                for (let i = 0; i < n; i++) {
-                    sumX += x[i];
-                    sumY += y[i];
-                    sumXY += x[i] * y[i];
-                    sumX2 += x[i] * x[i];
+                // If no black point and we'd get a large negative intercept, add synthetic black point
+                if (!hasBlack) {
+                    // First calculate without black to see if we need it
+                    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+                    for (let i = 0; i < n; i++) {
+                        sumX += x[i];
+                        sumY += y[i];
+                        sumXY += x[i] * y[i];
+                        sumX2 += x[i] * x[i];
+                    }
+                    const testSlope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+                    const testIntercept = (sumY - testSlope * sumX) / n;
+                    
+                    // If intercept would be very negative, add synthetic black point
+                    if (testIntercept < -50) {
+                        // Add black point (0,0) to the data
+                        const augX = [...x, 0];
+                        const augY = [...y, 0];
+                        const augN = n + 1;
+                        
+                        sumX = 0; sumY = 0; sumXY = 0; sumX2 = 0;
+                        for (let i = 0; i < augN; i++) {
+                            sumX += augX[i];
+                            sumY += augY[i];
+                            sumXY += augX[i] * augY[i];
+                            sumX2 += augX[i] * augX[i];
+                        }
+                        
+                        const slope = (augN * sumXY - sumX * sumY) / (augN * sumX2 - sumX * sumX);
+                        const intercept = (sumY - slope * sumX) / augN;
+                        
+                        coefficients[0] = intercept;
+                        coefficients[1] = slope;
+                    } else {
+                        coefficients[0] = testIntercept;
+                        coefficients[1] = testSlope;
+                    }
+                } else {
+                    // We have black point, proceed normally
+                    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+                    for (let i = 0; i < n; i++) {
+                        sumX += x[i];
+                        sumY += y[i];
+                        sumXY += x[i] * y[i];
+                        sumX2 += x[i] * x[i];
+                    }
+                    
+                    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+                    const intercept = (sumY - slope * sumX) / n;
+                    
+                    coefficients[0] = intercept;
+                    coefficients[1] = slope;
                 }
-                
-                const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-                const intercept = (sumY - slope * sumX) / n;
-                
-                coefficients[0] = intercept;
-                coefficients[1] = slope;
             } else {
                 // For higher degree polynomials we need to solve a system of linear equations
                 // Using normal equations: (X^T * X) * beta = X^T * y
