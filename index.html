@@ -1721,12 +1721,118 @@ input[type="range"] {
 		}
 
 		function generate2dPngLUT(lutCanvas, lutCtx, useAdvancedProcessing, gammaCurves) {
-		  // Standard Hald CLUT format for OBS
-		  // Common sizes: 64x64 (level 8) or 512x512 (level 64)
-		  const lutSize = 512; // Fixed at 512 for quality
+		  // Like the Python version, we'll load and modify the neutral LUT
+		  const lutSize = 512;
 		  lutCanvas.width = lutSize;
 		  lutCanvas.height = lutSize;
-		  lutCtx.clearRect(0, 0, lutCanvas.width, lutCanvas.height);
+		  
+		  // Load the neutral LUT image
+		  const img = new Image();
+		  img.onload = function() {
+			// Draw the neutral LUT to the canvas
+			lutCtx.drawImage(img, 0, 0, lutSize, lutSize);
+			
+			// Get the image data to modify
+			const imageData = lutCtx.getImageData(0, 0, lutSize, lutSize);
+			const data = imageData.data;
+			
+			// Apply transformations to each pixel
+			for (let i = 0; i < data.length; i += 4) {
+			  const r = data[i];
+			  const g = data[i + 1];
+			  const b = data[i + 2];
+			  
+			  let finalR = r, finalG = g, finalB = b;
+			  
+			  if (state.transformationCoefficients.red) {
+				// Use EITHER advanced processing OR basic polynomial, not both
+				if (useAdvancedProcessing && state.transformationModels && 
+					state.transformationModels.multivariate && 
+					state.transformationModels.multivariate.red) {
+				  // Use multivariate polynomial (like Python's applyLUT2)
+				  [finalR, finalG, finalB] = processPixelAdvanced(r, g, b, state.transformationModels, state.brightnessAdjustment, gammaCurves);
+				} else {
+				  // Use basic polynomial transformation (like Python's applyLUT)
+				  finalR = safeApplyPolynomial(r, state.transformationCoefficients.red);
+				  finalG = safeApplyPolynomial(g, state.transformationCoefficients.green);
+				  finalB = safeApplyPolynomial(b, state.transformationCoefficients.blue);
+				  
+				  // Apply brightness adjustment
+				  finalR += state.brightnessAdjustment;
+				  finalG += state.brightnessAdjustment;
+				  finalB += state.brightnessAdjustment;
+				  
+				  // Apply gamma curves if available (Python applies these after the main transformation)
+				  if (gammaCurves && gammaCurves.highlight && gammaCurves.shadow) {
+					// Apply highlight gamma curve (Python: where > 225 and < 492)
+					if (finalR > 225 && finalR < 492) {
+					  const idx = Math.round(finalR - 225);
+					  if (idx >= 0 && idx < gammaCurves.highlight.length) {
+						finalR = gammaCurves.highlight[idx];
+					  }
+					}
+					if (finalG > 225 && finalG < 492) {
+					  const idx = Math.round(finalG - 225);
+					  if (idx >= 0 && idx < gammaCurves.highlight.length) {
+						finalG = gammaCurves.highlight[idx];
+					  }
+					}
+					if (finalB > 225 && finalB < 492) {
+					  const idx = Math.round(finalB - 225);
+					  if (idx >= 0 && idx < gammaCurves.highlight.length) {
+						finalB = gammaCurves.highlight[idx];
+					  }
+					}
+					
+					// Apply shadow gamma curve (Python: where <= 30 and > -461)
+					if (finalR <= 30 && finalR > -461) {
+					  const idx = Math.round(finalR + 461);
+					  if (idx >= 0 && idx < gammaCurves.shadow.length) {
+						finalR = gammaCurves.shadow[idx];
+					  }
+					}
+					if (finalG <= 30 && finalG > -461) {
+					  const idx = Math.round(finalG + 461);
+					  if (idx >= 0 && idx < gammaCurves.shadow.length) {
+						finalG = gammaCurves.shadow[idx];
+					  }
+					}
+					if (finalB <= 30 && finalB > -461) {
+					  const idx = Math.round(finalB + 461);
+					  if (idx >= 0 && idx < gammaCurves.shadow.length) {
+						finalB = gammaCurves.shadow[idx];
+					  }
+					}
+				  }
+				}
+			  }
+			  
+			  // Clamp values to 0-255 (Python: lutimg[np.where(lutimg>255)]=255)
+			  data[i] = Math.min(255, Math.max(0, Math.round(finalR)));
+			  data[i + 1] = Math.min(255, Math.max(0, Math.round(finalG)));
+			  data[i + 2] = Math.min(255, Math.max(0, Math.round(finalB)));
+			  // Alpha stays at 255
+			}
+			
+			// Put the modified image data back
+			lutCtx.putImageData(imageData, 0, 0);
+			
+			logMessage('LUT transformation applied to neutral LUT', 'success');
+		  };
+		  
+		  img.onerror = function() {
+			logMessage('Failed to load neutral LUT, generating from scratch', 'warning');
+			// Fallback to generating from scratch
+			generateLUTFromScratch(lutCanvas, lutCtx, useAdvancedProcessing, gammaCurves);
+		  };
+		  
+		  // Try to load the neutral LUT
+		  img.src = 'neutral-lut.png';
+		}
+		
+		// Fallback function to generate LUT from scratch if neutral LUT fails to load
+		function generateLUTFromScratch(lutCanvas, lutCtx, useAdvancedProcessing, gammaCurves) {
+		  const lutSize = 512;
 		  const lutData = lutCtx.createImageData(lutSize, lutSize);
 		  const data = lutData.data;
 		  
@@ -1747,63 +1853,41 @@ input[type="range"] {
 			  const localY = y % blockSize;
 			  
 			  // Standard OBS Hald CLUT color mapping
-			  // Blue changes by block (8x8 grid = 64 values)
 			  const blueStep = blockIndex;
-			  // Red changes horizontally (X) within each block
 			  const redStep = localX;
-			  // Green changes vertically (Y) within each block  
 			  const greenStep = localY;
 			  
-			  // Convert steps to 0-255 range using step size of 4, with clamping at 255
-			  // This matches the exact OBS neutral LUT format
-			  const r = Math.min(255, redStep * 4);   // 0, 4, 8, ..., 252, 255
-			  const g = Math.min(255, greenStep * 4);  // 0, 4, 8, ..., 252, 255
-			  const b = Math.min(255, blueStep * 4);   // 0, 4, 8, ..., 252, 255
+			  // Convert steps to 0-255 range
+			  const r = Math.min(255, redStep * 4);
+			  const g = Math.min(255, greenStep * 4);
+			  const b = Math.min(255, blueStep * 4);
 			  
-			  // Apply transformations if coefficients are available
+			  // Apply transformations
 			  let finalR = r, finalG = g, finalB = b;
 			  
 			  if (state.transformationCoefficients.red) {
-				// Use EITHER advanced processing OR basic polynomial, not both
 				if (useAdvancedProcessing && gammaCurves) {
-				  // Use multivariate polynomial with gamma curves
 				  [finalR, finalG, finalB] = processPixelAdvanced(r, g, b, state.transformationModels, state.brightnessAdjustment, gammaCurves);
 				} else {
-				  // Use basic polynomial transformation
 				  finalR = safeApplyPolynomial(r, state.transformationCoefficients.red);
 				  finalG = safeApplyPolynomial(g, state.transformationCoefficients.green);
 				  finalB = safeApplyPolynomial(b, state.transformationCoefficients.blue);
 				  
-				  // Apply brightness adjustment
 				  finalR += state.brightnessAdjustment;
 				  finalG += state.brightnessAdjustment;
 				  finalB += state.brightnessAdjustment;
-				  
-				  // Apply gamma if needed
-				  const gammaValue = state.gammaValue || 1.0;
-				  if (gammaValue !== 1.0) {
-					finalR = safeGamma(finalR, gammaValue);
-					finalG = safeGamma(finalG, gammaValue);
-					finalB = safeGamma(finalB, gammaValue);
-				  }
 				}
 			  }
 			  
-			  // Clamp values to 0-255
-			  finalR = Math.min(255, Math.max(0, Math.round(finalR)));
-			  finalG = Math.min(255, Math.max(0, Math.round(finalG)));
-			  finalB = Math.min(255, Math.max(0, Math.round(finalB)));
-			  
 			  // Set pixel data
 			  const index = (y * lutSize + x) * 4;
-			  data[index] = finalR;
-			  data[index + 1] = finalG;
-			  data[index + 2] = finalB;
-			  data[index + 3] = 255; // Alpha
+			  data[index] = Math.min(255, Math.max(0, Math.round(finalR)));
+			  data[index + 1] = Math.min(255, Math.max(0, Math.round(finalG)));
+			  data[index + 2] = Math.min(255, Math.max(0, Math.round(finalB)));
+			  data[index + 3] = 255;
 			}
 		  }
 		  
-		  // Apply the image data to the canvas
 		  lutCtx.putImageData(lutData, 0, 0);
 		}
 
