@@ -5,7 +5,7 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Browser-based LUT Maker - Create Custom Color Lookup Tables</title>
-	<meta name="description" content="Create custom LUTs (Look-Up Tables) for OBS and video editing directly in your browser. Transform colors using reference charts with this free, open-source tool.">
+	<meta name="description" content="Free online LUT maker - Create custom color lookup tables for OBS Studio, video editing, and color grading. Generate 3D LUTs from color reference charts. No installation required.">
 
 	<!-- Favicon -->
 	<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIGZpbGw9IiNmMmYyZjIiIHJ4PSIyIiByeT0iMiIgLz4KICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyLCAyKSI+CiAgICA8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjNGE2ZmE1IiAvPgogICAgPHJlY3QgeD0iNCIgd2lkdGg9IjQiIGhlaWdodD0iNCIgZmlsbD0iIzQ3YjhkNiIgLz4KICAgIDxyZWN0IHg9IjgiIHdpZHRoPSI0IiBoZWlnaHQ9IjQiIGZpbGw9IiM5MGVlOTAiIC8+CiAgICA8cmVjdCB5PSI0IiB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZjViYTdkIiAvPgogICAgPHJlY3QgeD0iNCIgeT0iNCIgd2lkdGg9IjQiIGhlaWdodD0iNCIgZmlsbD0iI2NjY2NjYyIgLz4KICAgIDxyZWN0IHg9IjgiIHk9IjQiIHdpZHRoPSI0IiBoZWlnaHQ9IjQiIGZpbGw9IiNjMzZlNzAiIC8+CiAgICA8cmVjdCB5PSI4IiB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjNDQzMzY2IiAvPgogICAgPHJlY3QgeD0iNCIgeT0iOCIgd2lkdGg9IjQiIGhlaWdodD0iNCIgZmlsbD0iIzMzMzMzMyIgLz4KICAgIDxyZWN0IHg9IjgiIHk9IjgiIHdpZHRoPSI0IiBoZWlnaHQ9IjQiIGZpbGw9IiMwMDAwMDAiIC8+CiAgPC9nPgo8L3N2Zz4K" type="image/svg+xml">
@@ -17,19 +17,44 @@
 	<meta name="author" content="Steve Seguin">
 
 	<!-- Open Graph / Social Media -->
-	<meta property="og:title" content="Browser-based LUT Maker">
-	<meta property="og:description" content="Create custom LUTs for OBS and video editing directly in your browser with this free tool.">
+	<meta property="og:title" content="Free Online LUT Maker - Create Color Lookup Tables">
+	<meta property="og:description" content="Create professional color lookup tables (LUTs) for OBS, streaming, and video editing. Works with SpyderCHECKR and other color cards. 100% free, no signup required.">
 	<meta property="og:type" content="website">
 	<meta property="og:url" content="https://steveseguin.github.io/LUT-maker/">
+	<meta property="og:image" content="https://steveseguin.github.io/LUT-maker/lut-preview.png">
 
 	<!-- Twitter Card -->
 	<meta name="twitter:card" content="summary_large_image">
-	<meta name="twitter:title" content="Browser-based LUT Maker">
-	<meta name="twitter:description" content="Create custom color lookup tables (LUTs) for OBS and video editing directly in your browser.">
+	<meta name="twitter:title" content="Free Online LUT Maker - Create Color Lookup Tables">
+	<meta name="twitter:description" content="Create professional color LUTs for streaming and video editing. Works with color reference cards. 100% free tool.">
+	<meta name="twitter:image" content="https://steveseguin.github.io/LUT-maker/lut-preview.png">
 
 	<!-- Additional SEO -->
 	<meta name="robots" content="index, follow">
 	<link rel="canonical" href="https://steveseguin.github.io/LUT-maker/">
+	
+	<!-- Schema.org structured data -->
+	<script type="application/ld+json">
+	{
+		"@context": "https://schema.org",
+		"@type": "WebApplication",
+		"name": "LUT Maker",
+		"description": "Create custom color lookup tables (LUTs) for OBS Studio and video editing directly in your browser",
+		"url": "https://steveseguin.github.io/LUT-maker/",
+		"applicationCategory": "MultimediaApplication",
+		"operatingSystem": "Any",
+		"offers": {
+			"@type": "Offer",
+			"price": "0",
+			"priceCurrency": "USD"
+		},
+		"author": {
+			"@type": "Person",
+			"name": "Steve Seguin",
+			"url": "https://github.com/steveseguin"
+		}
+	}
+	</script>
 
 	<!-- App Capability -->
 	<meta name="mobile-web-app-capable" content="yes">
@@ -49,10 +74,13 @@
     --light-color: #f4f4f4;
     --danger-color: #dc3545;
     --success-color: #28a745;
+    --warning-color: #ffc107;
+    --info-color: #17a2b8;
     --bg-color: #f8f9fa;
     --card-bg: #ffffff;
     --border-radius: 8px;
     --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --box-shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.12);
     --transition: all 0.3s ease;
 }
 
@@ -79,8 +107,14 @@ h1, h2, h3 {
 }
 
 h1 {
-    font-size: 2.2rem;
-    margin-bottom: 0.5rem;
+    font-size: 2.4rem;
+    margin-bottom: 0.8rem;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 700;
+    letter-spacing: -0.5px;
 }
 
 h2 {
@@ -105,13 +139,15 @@ button {
     background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
     color: white;
     border: none;
-    padding: 10px 16px;
+    padding: 12px 20px;
     border-radius: var(--border-radius);
     cursor: pointer;
-    margin: 5px 0;
+    margin: 8px 4px;
     transition: var(--transition);
     font-weight: 500;
+    font-size: 0.95rem;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    text-transform: capitalize;
 }
 
 button:hover {
@@ -133,23 +169,52 @@ button:disabled {
 }
 
 .next-btn {
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    background: linear-gradient(135deg, var(--success-color), #5cb85c);
+    padding: 12px 24px;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.next-btn:hover {
+    background: linear-gradient(135deg, #239a3b, #4cae4c);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(40, 167, 69, 0.3);
 }
 
 .prev-btn {
     background: #6c757d;
+    padding: 12px 24px;
+    font-size: 1rem;
+}
+
+.prev-btn:hover {
+    background: #5a6268;
 }
 
 input[type="file"] {
-    margin: 10px 0;
-    border: 1px dashed #ccc;
-    padding: 8px;
+    margin: 15px 0;
+    border: 2px dashed #d0d0d0;
+    padding: 20px;
     border-radius: var(--border-radius);
     width: 100%;
+    background: linear-gradient(145deg, #fafafa, #f5f5f5);
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition);
+    position: relative;
 }
 
 input[type="file"]:hover {
     border-color: var(--primary-color);
+    background: linear-gradient(145deg, #fff, #fafafa);
+    box-shadow: 0 2px 8px rgba(74, 111, 165, 0.1);
+}
+
+input[type="file"]:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(74, 111, 165, 0.1);
 }
 
 input[type="number"] {
@@ -179,12 +244,68 @@ input[type="range"]::-webkit-slider-thumb:hover {
     background: var(--secondary-color);
 }
 
-select {
-    padding: 8px 12px;
-    border: 1px solid #ddd;
+/* Checkbox styling */
+input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    margin: 0 10px;
+    cursor: pointer;
+    position: relative;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    border: 2px solid #ddd;
     border-radius: 4px;
+    background: white;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+input[type="checkbox"]:checked {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+input[type="checkbox"]:checked::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+input[type="checkbox"]:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(74, 111, 165, 0.1);
+}
+
+input[type="checkbox"]:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(74, 111, 165, 0.2);
+}
+
+select {
+    padding: 10px 14px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
     background-color: white;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+    cursor: pointer;
+    transition: var(--transition);
+    font-size: 0.95rem;
+}
+
+select:hover {
+    border-color: var(--primary-color);
+}
+
+select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(74, 111, 165, 0.1);
 }
 
 #lut-preview {
@@ -193,20 +314,32 @@ select {
 }
 
 canvas {
-    border: 1px solid #ddd;
-    margin: 10px 0;
+    border: 2px solid #e0e0e0;
+    margin: 15px 0;
     max-width: 100%;
-    border-radius: 4px;
+    border-radius: 6px;
     background-color: #fcfcfc;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transition: var(--transition);
+}
+
+canvas:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 4px 12px rgba(74, 111, 165, 0.15);
 }
 
 .container {
     background: var(--card-bg);
-    padding: 24px;
+    padding: 28px;
     border-radius: var(--border-radius);
     box-shadow: var(--box-shadow);
     margin-bottom: 24px;
+    transition: var(--transition);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.container:hover {
+    box-shadow: var(--box-shadow-hover);
 }
 
 .grid {
@@ -216,9 +349,20 @@ canvas {
 }
 
 .step {
-    margin-bottom: 24px;
-    padding-bottom: 24px;
-    border-bottom: 1px solid #eee;
+    margin-bottom: 28px;
+    padding-bottom: 28px;
+    border-bottom: 2px solid #f0f0f0;
+    position: relative;
+}
+
+.step::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 50px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--primary-color), transparent);
 }
 
 .step:last-child {
@@ -229,11 +373,12 @@ canvas {
     display: flex;
     flex-direction: column;
     align-items: center;
-    background-color: #fafafa;
-    padding: 15px;
+    background: linear-gradient(145deg, #fafafa, #f5f5f5);
+    padding: 20px;
     border-radius: var(--border-radius);
-    margin: 15px 0;
-    border: 1px solid #eee;
+    margin: 20px 0;
+    border: 1px solid #e0e0e0;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .preview img {
@@ -243,23 +388,35 @@ canvas {
 }
 
 .controls {
-    margin: 20px 0;
-    background-color: #f9f9f9;
-    padding: 15px;
+    margin: 24px 0;
+    background: linear-gradient(145deg, #fbfbfb, #f7f7f7);
+    padding: 20px;
     border-radius: var(--border-radius);
-    border: 1px solid #eee;
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
 .slider-container {
     display: flex;
     align-items: center;
-    margin: 12px 0;
+    margin: 16px 0;
+    padding: 8px 0;
 }
 
 .slider-container label {
-    width: 170px;
+    min-width: 200px;
     font-weight: 500;
     color: #444;
+    display: flex;
+    align-items: center;
+}
+
+.slider-container small {
+    margin-left: 10px;
+    color: #666;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    flex: 1;
 }
 
 input[type="range"] {
@@ -290,8 +447,11 @@ input[type="range"] {
 }
 
 .color-cell:hover {
-    transform: scale(1.05);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transform: scale(1.08);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-color: var(--primary-color);
+    z-index: 10;
+    position: relative;
 }
 
 .color-input {
@@ -483,7 +643,48 @@ input[type="range"] {
 }
 
 #lut-download-container button {
-    min-width: 180px;
+    min-width: 200px;
+    padding: 14px 24px;
+    font-size: 1rem;
+    margin: 10px 5px;
+}
+
+#process-button {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+    padding: 14px 28px;
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-top: 20px;
+    width: 100%;
+    max-width: 300px;
+}
+
+#process-button:hover {
+    background: linear-gradient(135deg, var(--primary-dark), #2a4a70);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(74, 111, 165, 0.3);
+}
+
+/* Loading animation */
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.6; }
+    100% { opacity: 1; }
+}
+
+.loading {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Smooth scroll behavior */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Better focus styles */
+*:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
 }
 
 @media (max-width: 768px) {
