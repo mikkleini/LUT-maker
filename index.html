@@ -1472,7 +1472,7 @@ input[type="range"] {
             }
         }
         
-        // Polynomial regression function
+        // Polynomial regression function with constraints to prevent black regions
         function polynomialRegression(x, y, degree) {
             if (x.length !== y.length) {
                 throw new Error('Input arrays must have the same length');
@@ -1483,20 +1483,47 @@ input[type="range"] {
             
             // For simple linear regression (degree 1)
             if (degree === 1) {
+                // Add synthetic anchor points to ensure better behavior at extremes
+                // This helps prevent large negative intercepts
+                const augmentedX = [...x];
+                const augmentedY = [...y];
+                
+                // Add anchor at origin to preserve blacks
+                augmentedX.push(0);
+                augmentedY.push(0);
+                
+                // Add anchor at white to preserve highlights
+                augmentedX.push(255);
+                augmentedY.push(255);
+                
+                const nAug = augmentedX.length;
                 let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
                 
-                for (let i = 0; i < n; i++) {
-                    sumX += x[i];
-                    sumY += y[i];
-                    sumXY += x[i] * y[i];
-                    sumX2 += x[i] * x[i];
+                for (let i = 0; i < nAug; i++) {
+                    sumX += augmentedX[i];
+                    sumY += augmentedY[i];
+                    sumXY += augmentedX[i] * augmentedY[i];
+                    sumX2 += augmentedX[i] * augmentedX[i];
                 }
                 
-                const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-                const intercept = (sumY - slope * sumX) / n;
+                const slope = (nAug * sumXY - sumX * sumY) / (nAug * sumX2 - sumX * sumX);
+                const intercept = (sumY - slope * sumX) / nAug;
                 
-                coefficients[0] = intercept;
-                coefficients[1] = slope;
+                // Final safety check - if still too negative, use a safer approach
+                if (intercept < -30) {
+                    // Fall back to a slope-only model through origin
+                    let slopeOnly = 0;
+                    let weightedDenom = 0;
+                    for (let i = 0; i < n; i++) {
+                        slopeOnly += x[i] * y[i];
+                        weightedDenom += x[i] * x[i];
+                    }
+                    coefficients[0] = 0; // Force through origin
+                    coefficients[1] = weightedDenom > 0 ? slopeOnly / weightedDenom : 1;
+                } else {
+                    coefficients[0] = intercept;
+                    coefficients[1] = slope;
+                }
             } else {
                 // For higher degree polynomials we need to solve a system of linear equations
                 // Using normal equations: (X^T * X) * beta = X^T * y
