@@ -962,7 +962,8 @@ html {
                             <input type="range" id="gamma-slider" min="0.5" max="2.5" value="1" step="0.1" class="slider">
                             <span id="gamma-value" class="slider-value">1.0</span>
                         </div>
-                        <button id="apply-adjustments">Apply Adjustments</button>
+                        <p style="font-size: 0.9em; color: #666; margin: 10px 0;">Adjustments apply automatically when you stop moving the sliders</p>
+                        <button id="apply-adjustments" style="opacity: 0.7;">Apply Adjustments (Manual)</button>
                     </div>
                     
                     <div class="controls">
@@ -1087,6 +1088,26 @@ html {
 		  logMessage('Welcome to the Browser-based LUT Maker!', 'info');
 		});
         
+        // Debounce function to delay execution
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Auto-apply adjustments when sliders stop moving
+        const autoApplyAdjustments = debounce(function() {
+            if (state.testImage) {
+                processTestImage();
+            }
+        }, 500); // Wait 500ms after user stops adjusting
+
         // Initialize sliders and inputs
         function initializeSliders() {
             // Rows slider
@@ -1123,20 +1144,22 @@ html {
                 polyValue.textContent = state.polynomialDegree;
             });
             
-            // Brightness slider
+            // Brightness slider with auto-apply
             const brightnessSlider = document.getElementById('brightness-slider');
             const brightnessValue = document.getElementById('brightness-value');
             brightnessSlider.addEventListener('input', function() {
                 state.brightnessAdjustment = parseInt(this.value);
                 brightnessValue.textContent = state.brightnessAdjustment;
+                autoApplyAdjustments();
             });
             
-            // Gamma slider
+            // Gamma slider with auto-apply
             const gammaSlider = document.getElementById('gamma-slider');
             const gammaValue = document.getElementById('gamma-value');
             gammaSlider.addEventListener('input', function() {
                 state.gammaValue = parseFloat(this.value);
                 gammaValue.textContent = state.gammaValue.toFixed(1);
+                autoApplyAdjustments();
             });
             
             // LUT size slider
