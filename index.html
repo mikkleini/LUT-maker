@@ -962,8 +962,7 @@ html {
                             <input type="range" id="gamma-slider" min="0.5" max="2.5" value="1" step="0.1" class="slider">
                             <span id="gamma-value" class="slider-value">1.0</span>
                         </div>
-                        <p style="font-size: 0.9em; color: #666; margin: 10px 0;">Adjustments apply automatically when you stop moving the sliders</p>
-                        <button id="apply-adjustments" style="opacity: 0.7;">Apply Adjustments (Manual)</button>
+                        <p style="font-size: 0.9em; color: #666; margin: 10px 0;">Adjustments apply automatically</p>
                     </div>
                     
                     <div class="controls">
@@ -1150,7 +1149,13 @@ html {
             brightnessSlider.addEventListener('input', function() {
                 state.brightnessAdjustment = parseInt(this.value);
                 brightnessValue.textContent = state.brightnessAdjustment;
-                autoApplyAdjustments();
+                autoApplyAdjustments(); // Debounced update while dragging
+            });
+            brightnessSlider.addEventListener('change', function() {
+                // Apply immediately when user releases the slider
+                if (state.testImage) {
+                    processTestImage();
+                }
             });
             
             // Gamma slider with auto-apply
@@ -1159,7 +1164,13 @@ html {
             gammaSlider.addEventListener('input', function() {
                 state.gammaValue = parseFloat(this.value);
                 gammaValue.textContent = state.gammaValue.toFixed(1);
-                autoApplyAdjustments();
+                autoApplyAdjustments(); // Debounced update while dragging
+            });
+            gammaSlider.addEventListener('change', function() {
+                // Apply immediately when user releases the slider
+                if (state.testImage) {
+                    processTestImage();
+                }
             });
             
             // LUT size slider
@@ -2627,13 +2638,6 @@ html {
 		// Demo image button
 		document.getElementById('use-demo-test').addEventListener('click', function() {
 			loadDemoImage('test');
-		});
-		
-		// Apply adjustments button
-		document.getElementById('apply-adjustments').addEventListener('click', function() {
-			if (state.testImage) {
-				processTestImage();
-			}
 		});
 			
 		 // Initialize test image upload
